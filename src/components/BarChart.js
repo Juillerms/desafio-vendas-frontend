@@ -1,4 +1,3 @@
-// src/components/BarChart.js
 import React from 'react';
 import { Bar } from 'react-chartjs-2';
 import {
@@ -21,28 +20,26 @@ ChartJS.register(
 );
 
 const BarChart = ({ vendasData, title }) => {
-  // Processar 'vendasData' para o formato do Chart.js
-  // Exemplo: agrupar vendas por cliente (ou produto, se tiver essa info)
   const processDataForBarChart = (vendas) => {
     if (!vendas || vendas.length === 0) {
       return { labels: [], datasets: [] };
     }
 
-    const vendasPorCliente = vendas.reduce((acc, venda) => {
-      const cliente = venda.cliente || 'Desconhecido'; // Assumindo que 'cliente' é o nome do produto/categoria
-      acc[cliente] = (acc[cliente] || 0) + 1; // Contando quantidade de vendas
-      // Se quiser somar o valor das vendas: acc[cliente] = (acc[cliente] || 0) + venda.valor;
+    const vendasPorNomeProduto = vendas.reduce((acc, venda) => {
+      const produto = venda.nomeProduto || 'Desconhecido'; 
+      acc[produto] = (acc[produto] || 0) + venda.quantidadeVendida; 
+      acc[produto] = (acc[produto] || 0) + 1;
       return acc;
     }, {});
 
-    const labels = Object.keys(vendasPorCliente);
-    const dataValues = Object.values(vendasPorCliente);
+    const labels = Object.keys(vendasPorNomeProduto);
+    const dataValues = Object.values(vendasPorNomeProduto);
 
     return {
       labels,
       datasets: [
         {
-          label: 'Quantidade de Vendas por Cliente/Produto',
+          label: 'Quantidade Vendida por Produto',
           data: dataValues,
           backgroundColor: 'rgba(75, 192, 192, 0.6)',
           borderColor: 'rgba(75, 192, 192, 1)',
@@ -70,7 +67,7 @@ const BarChart = ({ vendasData, title }) => {
         beginAtZero: true,
         title: {
           display: true,
-          text: 'Quantidade de Vendas' // ou 'Valor Total Vendido'
+          text: 'Quantidade Vendida'
         }
       },
     },

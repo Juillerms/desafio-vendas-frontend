@@ -6,12 +6,9 @@ const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
-    // Se você implementou autenticação JWT, você precisará adicionar o token aqui
-    // 'Authorization': `Bearer ${localStorage.getItem('authToken')}`
   },
 });
 
-// Interceptor para lidar com erros da API de forma global (opcional, mas bom)
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('authToken');
@@ -27,12 +24,9 @@ apiClient.interceptors.request.use(
 
 export const fetchVendas = async (params) => {
   try {
-    // Se sua API /vendas aceitar filtros por data, produto, etc., passe-os aqui
-    // Exemplo: /vendas?dataInicio=2023-01-01&dataFim=2023-01-31
     const response = await apiClient.get('/vendas', { params });
-    return response.data; // Espera-se que a API retorne um array de vendas
+    return response.data; 
   } catch (error) {
-    // O interceptor já logou, mas podemos relançar para tratamento específico
     throw error;
   }
 };
@@ -56,6 +50,22 @@ export const logout = () => {
     localStorage.removeItem('authToken');
     // Você pode querer deletar o header do axios também, ou apenas confiar no interceptor
     // delete apiClient.defaults.headers.common['Authorization'];
+};
+
+export const fetchVendaById = async (idVenda) => {
+  if (!idVenda) {
+    return Promise.reject(new Error('ID da venda não fornecido.'));
+  }
+  try {
+    const response = await apiClient.get(`/vendas/${idVenda}`);
+    return response.data; 
+  } catch (error) {
+    if (error.response && error.response.status === 404) {
+      return null;
+    }
+    console.error(`Erro ao buscar venda com ID ${idVenda}:`, error.response?.data || error.message);
+    throw error.response?.data || { message: error.message || 'Erro desconhecido ao buscar venda.' };
+  }
 };
 
 export default apiClient;

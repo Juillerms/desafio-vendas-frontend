@@ -1,4 +1,3 @@
-// src/components/LineChart.js
 import React from 'react';
 import { Line } from 'react-chartjs-2';
 import {
@@ -10,9 +9,10 @@ import {
   Title,
   Tooltip,
   Legend,
-  TimeScale, // Importar TimeScale para eixos de tempo
+  TimeScale, 
 } from 'chart.js';
-import 'chartjs-adapter-date-fns'; // Adaptador para date-fns
+import 'chartjs-adapter-date-fns'; 
+import { parseISO } from 'date-fns'; 
 
 ChartJS.register(
   CategoryScale,
@@ -22,35 +22,45 @@ ChartJS.register(
   Title,
   Tooltip,
   Legend,
-  TimeScale // Registrar TimeScale
+  TimeScale 
 );
 
 const LineChart = ({ vendasData, title }) => {
-  // Processar 'vendasData' para o formato do Chart.js
   const processDataForLineChart = (vendas) => {
     if (!vendas || vendas.length === 0) {
-      return { labels: [], datasets: [] };
+      return { datasets: [{ label: 'Valor da Venda', data: [] }] };
     }
 
-    // Ordenar vendas por data
-    const sortedVendas = [...vendas].sort((a, b) => new Date(a.data) - new Date(b.data));
+    const vendasAgrupadasPorDia = vendas.reduce((acc, venda) => {
+      const diaDaVenda = venda.dataVenda; 
 
-    // Agrupar vendas por dia (ou mês, semana) e somar os valores ou contar quantidades
-    // Para este exemplo, vamos apenas plotar o valor de cada venda ao longo do tempo
-    // Numa aplicação real, você provavelmente agruparia (ex: total de vendas por dia)
+      if (!acc[diaDaVenda]) {
+        acc[diaDaVenda] = 0;
+      }
+      acc[diaDaVenda] += venda.valorTotal; 
+      return acc;
+    }, {});
 
-    const labels = sortedVendas.map(venda => new Date(venda.data)); // Datas para o eixo X
-    const dataValues = sortedVendas.map(venda => venda.valor);     // Valores para o eixo Y
+    console.log('LineChart - Vendas Agrupadas por Dia:', vendasAgrupadasPorDia);
+
+    const dataPoints = Object.keys(vendasAgrupadasPorDia)
+      .map(dia => ({
+        x: parseISO(dia), 
+        y: vendasAgrupadasPorDia[dia],
+      }))
+      .sort((a, b) => a.x - b.x); 
+
+    console.log('LineChart - Data Points para o gráfico:', dataPoints);
 
     return {
-      // labels, // Se usar CategoryScale, mas para TimeScale os dados vão no dataset
       datasets: [
         {
-          label: 'Valor da Venda',
-          data: sortedVendas.map(venda => ({ x: new Date(venda.data), y: venda.valor })),
-          borderColor: 'rgb(255, 99, 132)',
-          backgroundColor: 'rgba(255, 99, 132, 0.5)',
-          tension: 0.1, // Suaviza a linha
+          label: 'Valor Total de Vendas por Dia',
+          data: dataPoints,
+          borderColor: 'rgb(54, 162, 235)', 
+          backgroundColor: 'rgba(54, 162, 235, 0.5)',
+          tension: 0.1,
+          fill: false, 
         },
       ],
     };
@@ -60,24 +70,39 @@ const LineChart = ({ vendasData, title }) => {
 
   const options = {
     responsive: true,
+    maintainAspectRatio: true, 
     plugins: {
       legend: {
         position: 'top',
       },
       title: {
         display: true,
-        text: title || 'Evolução das Vendas ao Longo do Tempo',
+        text: title || 'Evolução do Valor das Vendas',
       },
+      tooltip: {
+        callbacks: {
+          label: function(context) {
+            let label = context.dataset.label || '';
+            if (label) {
+              label += ': ';
+            }
+            if (context.parsed.y !== null) {
+              label += new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(context.parsed.y);
+            }
+            return label;
+          }
+        }
+      }
     },
     scales: {
       x: {
-        type: 'time', // Definir o tipo de escala para tempo
+        type: 'time',
         time: {
-          unit: 'day', // Agrupar por dia, pode ser 'month', 'year', etc.
-          tooltipFormat: 'dd/MM/yyyy', // Formato da data na dica
+          unit: 'day',
+          tooltipFormat: 'dd/MM/yyyy', 
           displayFormats: {
-             day: 'dd/MM' // Formato da data no eixo
-          }
+            day: 'dd/MM/yy', 
+          },
         },
         title: {
           display: true,
@@ -88,11 +113,20 @@ const LineChart = ({ vendasData, title }) => {
         beginAtZero: true,
         title: {
           display: true,
-          text: 'Valor da Venda (R$)',
+          text: 'Valor Total Vendido (R$)',
         },
+        ticks: {
+          callback: function(value) {
+            return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+          }
+        }
       },
     },
   };
+
+  if (!chartData || !chartData.datasets) {
+      return <p>Preparando dados para o gráfico...</p>;
+  }
 
   return <Line data={chartData} options={options} />;
 };

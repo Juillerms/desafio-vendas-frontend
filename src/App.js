@@ -1,10 +1,9 @@
-// src/App.js
 import React, { useState, useEffect, useCallback } from 'react';
 import './App.css';
 import BarChart from './components/BarChart';
 import LineChart from './components/LineChart';
 import Filters from './components/Filters';
-import { fetchVendas } from './services/api'; // Importa a função de busca
+import { fetchVendas, fetchVendaById } from './services/api';
 
 function App() {
   const [vendas, setVendas] = useState([]);
@@ -13,11 +12,16 @@ function App() {
   const [error, setError] = useState(null);
   const [currentFilters, setCurrentFilters] = useState({});
 
+  const [vendaIdInput, setVendaIdInput] = useState(''); 
+  const [encontradaVenda, setEncontradaVenda] = useState(null); 
+  const [loadingEncontradaVenda, setLoadingEncontradaVenda] = useState(false);
+  const [errorEncontradaVenda, setErrorEncontradaVenda] = useState(null);
+  const [buscaRealizada, setBuscaRealizada] = useState(false); 
+
   const loadVendas = useCallback(async (filters = {}) => {
     setLoading(true);
     setError(null);
     try {
-      // Remove chaves com valores nulos ou vazios dos filtros
       const activeFilters = Object.entries(filters)
         .filter(([_, value]) => value !== null && value !== '')
         .reduce((obj, [key, value]) => {
@@ -28,7 +32,7 @@ function App() {
       console.log("Filtros aplicados na API:", activeFilters);
       const data = await fetchVendas(activeFilters);
       setVendas(data);
-      setFilteredVendas(data); // Inicialmente, todas as vendas são "filtradas"
+      setFilteredVendas(data); 
     } catch (err) {
       console.error("Erro ao buscar vendas no App.js:", err);
       setError(err.detalhe || err.message || 'Falha ao carregar os dados das vendas.');
@@ -38,34 +42,41 @@ function App() {
   }, []);
 
   useEffect(() => {
-    loadVendas(); // Carrega todas as vendas inicialmente
+    loadVendas(); 
   }, [loadVendas]);
 
   const handleFilterChange = (filters) => {
     console.log("Novos filtros recebidos:", filters);
     setCurrentFilters(filters);
-    // A chamada da API com filtros será feita pelo useEffect abaixo
-    // ou pode ser chamada diretamente aqui se preferir:
     loadVendas(filters); 
   };
 
-  // Este useEffect poderia ser usado para filtrar no frontend se a API não suportar todos os filtros
-  // Mas o ideal é que a API faça a filtragem.
-  // useEffect(() => {
-  //   let dataToFilter = [...vendas];
-  //   if (currentFilters.dataInicio) {
-  //     dataToFilter = dataToFilter.filter(v => new Date(v.data) >= new Date(currentFilters.dataInicio));
-  //   }
-  //   if (currentFilters.dataFim) {
-  //     // Adiciona 1 dia ao dataFim para incluir vendas do dia final inteiro
-  //     const endDate = new Date(currentFilters.dataFim);
-  //     endDate.setDate(endDate.getDate() + 1);
-  //     dataToFilter = dataToFilter.filter(v => new Date(v.data) < endDate);
-  //   }
-  //   // Adicionar mais lógicas de filtro aqui se necessário (ex: produto)
-  //   setFilteredVendas(dataToFilter);
-  // }, [vendas, currentFilters]);
+const handleBuscarVendaPorId = async () => {
+  if (!vendaIdInput.trim()) {
+    alert('Por favor, insira um ID de venda.');
+    setEncontradaVenda(null);
+    setErrorEncontradaVenda(null);
+    setBuscaRealizada(false);
+    return;
+  }
+  setLoadingEncontradaVenda(true);
+  setErrorEncontradaVenda(null);
+  setEncontradaVenda(null);
+  setBuscaRealizada(true);
 
+  try {
+    const data = await fetchVendaById(vendaIdInput);
+    setEncontradaVenda(data);
+    if (data === null) {
+      setErrorEncontradaVenda(`Nenhuma venda encontrada com o ID: ${vendaIdInput}`);
+    }
+  } catch (err) {
+    console.error("Erro ao buscar venda por ID no App.js:", err);
+    setErrorEncontradaVenda(err.detalhe || err.message || `Falha ao buscar venda com ID: ${vendaIdInput}.`);
+  } finally {
+    setLoadingEncontradaVenda(false);
+  }
+};
 
   if (loading) {
     return <div className="App-loading">Carregando dados...</div>;
@@ -81,6 +92,41 @@ function App() {
         <h1>Dashboard de Vendas</h1>
       </header>
       <main className="App-main">
+
+        <section className="todas-vendas-section">
+          <h2>Relatório de Vendas</h2>
+          {loading && <p className="App-loading">Carregando relatório de vendas...</p>}
+          {!loading && error && <p className="App-error">Erro ao carregar vendas: {error}</p>}
+          {!loading && !error && filteredVendas.length === 0 && (
+            <p>Nenhuma venda encontrada para os filtros aplicados.</p>
+          )}
+          {!loading && !error && filteredVendas.length > 0 && (
+            <div className="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID da Venda</th>
+                    <th>Nome do Produto</th>
+                    <th>Quantidade</th>
+                    <th>Data da Venda</th>
+                    <th>Valor Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredVendas.map((venda) => (
+                    <tr key={venda.id}>
+                      <td>{venda.id}</td>
+                      <td>{venda.nomeProduto}</td>
+                      <td>{venda.quantidadeVendida}</td>
+                      <td>{new Date(venda.dataVenda + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
+                      <td>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(venda.valorTotal)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
         <Filters onFilterChange={handleFilterChange} />
         {filteredVendas.length === 0 && !loading && (
           <p>Nenhuma venda encontrada para os filtros aplicados ou no período selecionado.</p>
@@ -96,6 +142,55 @@ function App() {
           </>
         )}
       </main>
+      
+        <section className="buscar-venda-section">
+          <h2>Consultar Venda por ID</h2>
+          <div className="form-group">
+            <input
+              type="number" // ou "text" se o ID puder ter não numéricos
+              placeholder="Digite o ID da Venda"
+              value={vendaIdInput}
+              onChange={(e) => {
+                setVendaIdInput(e.target.value);
+                setBuscaRealizada(false); // Reseta o estado de busca se o input mudar
+                setEncontradaVenda(null);
+                setErrorEncontradaVenda(null);
+              }}
+              className="form-input"
+            />
+            <button 
+              onClick={handleBuscarVendaPorId} 
+              disabled={loadingEncontradaVenda || !vendaIdInput.trim()} 
+              className="form-button"
+            >
+              {loadingEncontradaVenda ? 'Buscando...' : 'Buscar Venda'}
+            </button>
+          </div>
+
+          {loadingEncontradaVenda && <p className="App-loading">Consultando venda...</p>}
+
+          {errorEncontradaVenda && !loadingEncontradaVenda && (
+            <p className="App-error">Erro: {errorEncontradaVenda}</p>
+          )}
+
+          {buscaRealizada && !loadingEncontradaVenda && !errorEncontradaVenda && encontradaVenda && (
+            <div className="venda-detalhes">
+              <h3>Detalhes da Venda ID: {encontradaVenda.id}</h3>
+              <p><strong>Nome do Produto:</strong> {encontradaVenda.nomeProduto}</p>
+              <p><strong>Quantidade Vendida:</strong> {encontradaVenda.quantidadeVendida}</p>
+              <p><strong>Data da Venda:</strong> {new Date(encontradaVenda.dataVenda + 'T00:00:00').toLocaleDateString('pt-BR')}</p> {/* Adiciona T00:00:00 para evitar problemas de fuso ao converter só a data */}
+              <p><strong>Valor Total:</strong> {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(encontradaVenda.valorTotal)}</p>
+            </div>
+          )}
+
+          {buscaRealizada && !loadingEncontradaVenda && !errorEncontradaVenda && !encontradaVenda && (
+            <p>Nenhuma venda encontrada com o ID: {vendaIdInput}.</p>
+          )}
+        </section>
+
+
+
+
     </div>
   );
 }
